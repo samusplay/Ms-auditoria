@@ -34,6 +34,8 @@ def get_db():
         db.close()
         
 
+# importar los modelos antes de crear las tablas
+from app.infrastructure.models.audit_event import AuditEvent
 
 #crea las tablas que no existen
 Base.metadata.create_all(bind=engine)

@@ -18,11 +18,31 @@ async def lifespan(app:FastAPI):
     yield
     print("\033[93m\nFinalizando procesos...\033[0m")
 
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi import Request
+
 #Instaciamos app
 app=FastAPI(
-    title="Api transformación de datos",
-    description="Responsable de procesar y calcular datos",
+    title="API Auditoría y Trazabilidad",
+    description="Responsable de registrar y persistir eventos de auditoría de forma inmutable",
     lifespan=lifespan
 )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    missing_fields = []
+    for error in exc.errors():
+        if error["type"] == "missing" or error["type"] == "string_too_short":
+            missing_fields.append(error["loc"][-1])
+            
+    return JSONResponse(
+        status_code=400,
+        content={
+            "error": "Validation failed",
+            "missing_fields": missing_fields
+        }
+    )
+
 #llamada a rutas 
 app.include_router(api_router)
