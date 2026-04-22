@@ -32,8 +32,10 @@ def test_create_event_success():
     payload = {
         "event_type": "DATA_LOADED",
         "service_name": "ms-ingestion",
+        "reference_id": "REF-123456",
         "trace_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-        "event_summary": "Carga exitosa del dataset ventas_q3.csv con 15420 registros."
+        "event_summary": "Carga exitosa del dataset ventas_q3.csv con 15420 registros.",
+        "status": "SUCCESS"
     }
     response = client.post("/api/v1/events", json=payload)
     assert response.status_code == 201
@@ -41,12 +43,17 @@ def test_create_event_success():
     assert "id" in data
     assert "created_at" in data
 
+    assert "status" in data
+    assert "reference_id" in data
+
     # Verify trace_id in DB (isolated check)
     db = TestingSessionLocal()
-    from app.infrastructure.models.audit_event import AuditEvent
-    event_in_db = db.query(AuditEvent).filter(AuditEvent.id == data["id"]).first()
+    from app.infrastructure.models.audit_event import AuditEventModel
+    event_in_db = db.query(AuditEventModel).filter(AuditEventModel.id == data["id"]).first()
     assert event_in_db is not None
     assert event_in_db.trace_id == payload["trace_id"]
+    assert event_in_db.reference_id == payload["reference_id"]
+    assert event_in_db.status == payload["status"]
     db.close()
 
 def test_create_event_missing_fields():

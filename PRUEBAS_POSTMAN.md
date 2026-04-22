@@ -109,3 +109,126 @@ event_summary TEXT,
 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 status VARCHAR(50)
 );
+
+# Guía de Pruebas de Microservicios vía API Gateway
+
+Esta guía detalla los pasos para validar que los nuevos microservicios (`ms-analytics` y `ms-configuration`) están correctamente integrados al **API Gateway** y respondiendo a través del puerto central `8000`.
+
+---
+
+## 📋 Requisitos Previos
+
+1.  **Levantar Infraestructura:** Asegúrate de que los contenedores estén corriendo:
+    ```bash
+    docker compose up -d
+    ```
+    *(O si estás probando localmente, asegúrate de que cada servicio esté iniciado en su respectivo puerto: Gateway: 8000, Configuration: 8004, Analytics: 8005).*
+
+2.  **Postman:** Tener instalado Postman o una herramienta similar (Thunder Client, Insomnia).
+
+---
+
+## 🚦 Paso 1: Validar Conectividad (Health Checks)
+
+Antes de probar lógica de negocio, verificamos que el Gateway puede llegar a los microservicios.
+
+### A. Probar ms-analytics vía Gateway
+- **Método:** `GET`
+- **URL:** `http://localhost:8000/api/v1/analytics/health`
+- **Respuesta esperada (200 OK):**
+  ```json
+  {
+      "status": "ok",
+      "service": "ms-ANALYTICS"
+  }
+  ```
+
+### B. Probar ms-configuration vía Gateway
+- **Método:** `GET`
+- **URL:** `http://localhost:8000/api/v1/configuration/health`
+- **Respuesta esperada (200 OK):**
+  ```json
+  {
+      "status": "ok",
+      "service": "ms-CONFIGURATION"
+  }
+  ```
+
+---
+
+## 📊 Paso 2: Probar Sincronización de Analítica
+
+El microservicio de analítica recibe datos transformados. Vamos a simular un envío desde el Gateway.
+
+- **Método:** `POST`
+- **URL:** `http://localhost:8000/api/v1/analytics/internal/sync/DATASET_001`
+- **Headers:** `Content-Type: application/json`
+- **Body (Raw JSON):**
+  ```json
+  {
+    "data": [
+      {
+        "zone_code": "Z01",
+        "zone_name": "Zona Norte",
+        "region": "Capital",
+        "metrics": {
+          "poverty_index": 0.25,
+          "population": 1200
+        }
+      },
+      {
+        "zone_code": "Z02",
+        "zone_name": "Zona Sur",
+        "region": "Periferia",
+        "metrics": {
+          "poverty_index": 0.45,
+          "population": 850
+        }
+      }
+    ]
+  }
+  ```
+- **Respuesta esperada:** Un JSON indicando el éxito de la operación.
+
+---
+
+## 🛠️ Solución de Problemas (Troubleshooting)
+
+### ❌ Error 503 Service Unavailable
+Si el Gateway responde con:
+`"detail": "Error: El ms-analytics (Puerto 8005) está apagado o no responde."`
+**Solución:** Verifica que el microservicio esté encendido. Si estás usando Docker, revisa que el nombre del servicio en `docker-compose.yml` coincida con la URL configurada en el Gateway.
+
+### ❌ Error 404 Not Found
+**Solución:** Asegúrate de que la URL en Postman incluya exactamente los prefijos correctos:
+- `/api/v1/analytics/...`
+- `/api/v1/configuration/...`
+
+### 🔍 Prueba Directa (Bypass Gateway)
+Si sospechas que el problema es el Gateway, intenta llamar al microservicio directamente:
+- **Analytics:** `http://localhost:8005/api/v1/analytics/health`
+- **Configuration:** `http://localhost:8004/api/v1/configuration/health`
+
+---
+
+## 🛡️ Paso 3: Probar Auditoría Automática desde Ingestión
+
+Hemos configurado `ms-ingestion` para que dispare un evento de auditoría de forma asíncrona cada vez que cargue un dataset con éxito. Para probar este flujo integral, sigue estos pasos:
+
+### Opción A: Prueba de Ingesta desde el API Gateway (Recomendado)
+- **Método:** `POST`
+- **URL:** `http://localhost:8000/api/v1/ingesta/datasets`
+- **Body:** `form-data` con un archivo `file` válido (ej. un CSV o JSON).
+- **Flujo Esperado:** 
+  1. El Gateway recibe y transfiere el archivo a `ms-ingestion`.
+  2. `ms-ingestion` responde con éxito y su `dataset_load_id`.
+  3. En background, `ms-ingestion` emitirá de inmediato el evento `DATA_INGESTION_COMPLETED` hacia `ms-auditoria`.
+
+### Opción B: Prueba Directa en el puerto del Microservicio
+Puedes saltarte el Gateway e invocar el microservicio directo usando su puerto nativo, típicamente `8001`:
+- **Método:** `POST`
+- **URL:** `http://localhost:8001/api/v1/ingesta/datasets`
+- **Body:** `form-data` -> `file`
+
+### ✅ Verificación del Evento Creado
+Tras enviar cualquiera de las dos peticiones anteriores sin error, comprueba tu base de datos de auditoría (`db-audit` ubicada típicamente en el puerto local `5438`) y verás registrado el nuevo evento, confirmando así que el flujo entre **Ingesta -> Auditoría** funciona a la perfección.

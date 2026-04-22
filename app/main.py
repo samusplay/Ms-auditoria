@@ -1,15 +1,20 @@
 from contextlib import asynccontextmanager
 
-from app.infrastructure.database import check_db_connection
+from app.infrastructure.database import check_db_connection, Base, engine
 from app.routers.api import api_router
 from fastapi import FastAPI
-
 
 #gestor de vida
 @asynccontextmanager
 async def lifespan(app:FastAPI):
     print("\033[94m⚙️  Configurando servicios internos...\033[0m")
     
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("\033[92m✅ Tablas de AUDITORÍA sincronizadas\033[0m")
+    except Exception as e:
+        print(f"\033[91m🚨 Error creando tablas en MS-AUDITORIA: {e}\033[0m")
+
     if check_db_connection():
         print("\033[92m✅ PERSISTENCIA: Conectado a PostgreSQL\033[0m")
     else:

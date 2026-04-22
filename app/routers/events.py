@@ -1,38 +1,30 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError
 
 from app.infrastructure.database import get_db
-from app.infrastructure.models.audit_event import AuditEvent
+from app.application.service.audit_service import AuditService
+from app.infrastructure.repositories.audit_repository_impl import AuditRepositoryImpl
 from app.schemas.event_schema import EventCreate, EventResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/events", tags=["Events"])
 
+def get_audit_service(db: Session = Depends(get_db)) -> AuditService:
+    repository = AuditRepositoryImpl(db)
+    return AuditService(repository)
+
 @router.post("", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
-def create_event(event: EventCreate, db: Session = Depends(get_db)):
+def create_event(event: EventCreate, service: AuditService = Depends(get_audit_service)):
     """
-    Recibe un evento de auditoría y lo persiste de forma inmutable.
+    Recibe un evento de auditoría y lo persiste de forma inmutable delegando al AuditService (Hexagonal).
     """
     try:
-        new_event = AuditEvent(
-            event_type=event.event_type,
-            service_name=event.service_name,
-            trace_id=event.trace_id,
-            event_summary=event.event_summary
-        )
-        
-        db.add(new_event)
-        db.commit()
-        db.refresh(new_event)
-        
-        return new_event
-        
-    except SQLAlchemyError as e:
-        db.rollback()
-        # Log estructurado interno, nunca exponer stack trace al cliente
-        logger.error(f"Database error while saving audit event: {str(e)} - trace_id: {event.trace_id}")
+        # Usamos dict() o model_dump() (Pydantic v2)
+        saved_event = service.process_audit_event(event.dict() if hasattr(event, "dict") else event.model_dump())
+        return saved_event
+    except Exception as e:
+        logger.error(f"Error while saving audit event: {str(e)} - trace_id: {event.trace_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error interno del servidor al persistir el evento."
