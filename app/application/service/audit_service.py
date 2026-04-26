@@ -9,10 +9,10 @@ class AuditService:
         event = AuditEvent(
             id=None,
             event_type=event_data["event_type"],
-            service_name=event_data["service_name"],
+            source_service=event_data["source_service"],
             reference_id=event_data.get("reference_id", "N/A"),
             trace_id=event_data["trace_id"],
-            event_summary=event_data["event_summary"],
+            details=event_data["details"],
             status=event_data.get("status", "SUCCESS")
         )
         return self.repository.save(event)

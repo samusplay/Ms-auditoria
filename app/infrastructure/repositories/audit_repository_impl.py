@@ -12,10 +12,10 @@ class AuditRepositoryImpl(AuditRepositoryPort):
         try:
             db_event = AuditEventModel(
                 event_type=event.event_type,
-                service_name=event.service_name,
+                source_service=event.source_service,
                 reference_id=event.reference_id,
                 trace_id=event.trace_id,
-                event_summary=event.event_summary,
+                details=event.details,
                 status=event.status
             )
             self.db.add(db_event)

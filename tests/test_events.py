@@ -31,10 +31,10 @@ def setup_database():
 def test_create_event_success():
     payload = {
         "event_type": "DATA_LOADED",
-        "service_name": "ms-ingestion",
+        "source_service": "ms-ingestion",
         "reference_id": "REF-123456",
         "trace_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-        "event_summary": "Carga exitosa del dataset ventas_q3.csv con 15420 registros.",
+        "details": {"rows_processed": 15420, "file_name": "ventas_q3.csv"},
         "status": "SUCCESS"
     }
     response = client.post("/api/v1/events", json=payload)
@@ -59,18 +59,18 @@ def test_create_event_success():
 def test_create_event_missing_fields():
     payload = {
         "event_type": "DATA_LOADED",
-        "service_name": "ms-ingestion"
-        # missing trace_id and event_summary
+        "source_service": "ms-ingestion"
+        # missing trace_id and details
     }
     response = client.post("/api/v1/events", json=payload)
     assert response.status_code == 400
     data = response.json()
     assert data["error"] == "Validation failed"
     assert "trace_id" in data["missing_fields"]
-    assert "event_summary" in data["missing_fields"]
+    assert "details" in data["missing_fields"]
 
 def test_method_not_allowed():
-    payload = {"event_type": "TEST", "service_name": "test", "trace_id": "123", "event_summary": "test"}
+    payload = {"event_type": "TEST", "source_service": "test", "trace_id": "123", "details": {"test": True}}
     
     response = client.put("/api/v1/events", json=payload)
     assert response.status_code == 405
