@@ -11,3 +11,8 @@ class AuditRepositoryPort(ABC):
     def save(self, event: AuditEvent) -> AuditEvent:
         """Persiste un evento en la base de datos y retorna la entidad con su ID y fecha de creación."""
         pass
+
+    @abstractmethod
+    def get_all(self, limit: int = 50, offset: int = 0) -> list[AuditEvent]:
+        """Obtiene un listado paginado de eventos de auditoría."""
+        pass

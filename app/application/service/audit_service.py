@@ -16,3 +16,6 @@ class AuditService:
             status=event_data.get("status", "SUCCESS")
         )
         return self.repository.save(event)
+
+    def get_audit_events(self, limit: int = 50, offset: int = 0) -> list[AuditEvent]:
+        return self.repository.get_all(limit=limit, offset=offset)

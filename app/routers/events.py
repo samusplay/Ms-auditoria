@@ -29,3 +29,18 @@ def create_event(event: EventCreate, service: AuditService = Depends(get_audit_s
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error interno del servidor al persistir el evento."
         )
+
+@router.get("", response_model=list[EventResponse])
+def get_events(limit: int = 50, offset: int = 0, service: AuditService = Depends(get_audit_service)):
+    """
+    Retorna el historial de eventos de auditoría (paginado).
+    """
+    try:
+        events = service.get_audit_events(limit=limit, offset=offset)
+        return events
+    except Exception as e:
+        logger.error(f"Error while fetching audit events: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno del servidor al consultar eventos."
+        )

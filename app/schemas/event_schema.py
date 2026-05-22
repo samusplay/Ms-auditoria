@@ -12,6 +12,10 @@ class EventCreate(BaseModel):
 
 class EventResponse(BaseModel):
     id: int
+    event_type: str
+    service_name: str
+    trace_id: str
+    event_summary: str
     created_at: datetime
     reference_id: str
     status: str
